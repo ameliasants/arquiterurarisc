@@ -17,5 +17,6 @@ typedef struct {
 void init_cpu(Cpu* cpu);
 void print_state(Cpu* cpu);
 void run(Cpu* cpu);
+void print_memory_accesses(void);
 
 #endif

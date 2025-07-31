@@ -1,6 +1,7 @@
 #ifndef UTILS_H
 #define UTILS_H
 
+#include <stdint.h>
 #include "cpu.h"
 
 void stack_push(Cpu* cpu, uint16_t value);

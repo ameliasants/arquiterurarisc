@@ -1,5 +1,3 @@
-
-
 #include "instructions.h"
 #include "cpu.h"
 #include "memory.h"
@@ -7,20 +5,6 @@
 #include "utils.h"
 #include <stdio.h>
 extern uint16_t memory[];
-
-
-#ifndef CHAR_IN
-#define CHAR_IN 0xFF00
-#endif
-
-#ifndef INT_OUT
-#define INT_OUT 0xFF03
-#endif
-
-#ifndef MEM_SIZE
-#define MEM_SIZE 65536
-#endif
-
 
 void update_flags(Cpu* cpu, uint16_t result, uint16_t a, uint16_t b, char op) {
     // Z flag: resultado é zero
@@ -51,20 +35,18 @@ void update_flags(Cpu* cpu, uint16_t result, uint16_t a, uint16_t b, char op) {
 }
 
 void execute_instruction(Cpu* cpu) {
-    uint16_t instr = memory[cpu->regs[15]];
+    uint16_t instr = read_memory(cpu->regs[15]);
     cpu->IR = instr;
     cpu->regs[15]++; // Incrementa PC
 
-    uint8_t opcode = (instr >> 12) & 0xF;
+    uint8_t opcode = (instr >> 12) & 0xF; // para identificar a instrução
     printf("Executando: 0x%04X\n", instr);
 
     switch (opcode) {
         case 0x0: {
             if (instr == 0x0000) {
-                printf("NOP executado.\n");
-                print_state(cpu); // ← imprime estado da CPU após NOP
-            } else {
-                printf("Instrucao nao implementada: 0x%04X\n", instr);
+                print_state(cpu); 
+                print_memory_accesses();
             }
             break;
         }
@@ -80,72 +62,35 @@ void execute_instruction(Cpu* cpu) {
                 case 2: executa_jne(cpu, offset); break;
                 case 3: executa_jlt(cpu, offset); break;
                 case 4: executa_jge(cpu, offset); break;
+                case 5: executa_jgt(cpu, offset); break;
+                case 6: executa_jle(cpu, offset); break;
+                case 7: executa_jnz(cpu, offset); break; 
                 default: printf("Salto desconhecido: tipo %d\n", tipo); break;
             }
             break;
         }
 
-
-
-        case 0x2: {
-            uint16_t addr_or_reg = instr & 0xFF;
-
-            if ((instr >> 8) == 0x2 && addr_or_reg == 0) {
-                break; // NOP
-            }
-
-            if ((instr >> 8) == 0x2 && addr_or_reg != 0) {
-                cpu->regs[15] = addr_or_reg;
-                break;
-            }
-
+       case 0x2: { // LDR Rd, [Rm]
+            uint8_t rd = (instr >> 8) & 0xF;
             uint8_t rm = (instr >> 4) & 0xF;
-            uint8_t rn = instr & 0xF;
             uint16_t addr = cpu->regs[rm];
-
-            if (addr >= CHAR_IN && addr <= INT_OUT) {
-                handle_io(addr, &cpu->regs[rn], 0);
-            } else if (addr < MEM_SIZE) {
-                cpu->regs[rn] = memory[addr];
-            } else {
-                printf("Erro: endereco invalido 0x%04X na instrucao LOAD\n", addr);
-            }
+            cpu->regs[rd] = read_memory(addr); // read_memory deve chamar handle_io se addr==0x02
             break;
         }
-
-        case 0x3: {
-            uint8_t rm = (instr >> 4) & 0xF;
-            uint8_t rn = instr & 0xF;
-
-            if (rm == 0 && rn == 0) {
-                uint16_t addr = instr & 0xFF;
-                if (cpu->regs[14] == 0) {
-                    printf("Erro: pilha cheia ou SP invalido\n");
-                    break;
-                }
-                cpu->regs[14]--;
-                memory[cpu->regs[14]] = cpu->regs[15] + 1;
-                cpu->regs[15] = addr;
-                break;
-            }
-
+      case 0x3: { // STR Rn, [Rm]
+            // Implementa: memory[Rm] = Rn
+            // Encoding: opcode(4b) | Rm(4b) | Rn(4b)
+            uint8_t rm = (instr >> 4) & 0xF; // Rm: base/endereço (destino)
+            uint8_t rn = instr & 0xF;        // Rn: valor a armazenar (fonte)
             uint16_t addr = cpu->regs[rm];
-            if (addr >= CHAR_IN && addr <= INT_OUT) {
-                handle_io(addr, &cpu->regs[rn], 1);
-            } else if (addr < MEM_SIZE) {
-                memory[addr] = cpu->regs[rn];
-            } else {
-                printf("Erro: endereco invalido 0x%04X na instrucao STR\n", addr);
-            }
+            uint16_t value = cpu->regs[rn];
+            // Debug opcional:
+            // printf("STR R%d (0x%04X) -> [R%d (0x%04X)]\n", rn, value, rm, addr);
+            write_memory(addr, value);
             break;
         }
-
         case 0x4: {
             if (instr == 0x4000) {
-                if (cpu->regs[14] >= MEM_SIZE) {
-                    printf("Erro: pilha vazia ou SP invalido\n");
-                    break;
-                }
                 cpu->regs[15] = memory[cpu->regs[14]];
                 cpu->regs[14]++;
             } else {
@@ -156,7 +101,7 @@ void execute_instruction(Cpu* cpu) {
             break;
         }
 
-        case 0x5: { // ADD
+       case 0x5: { // ADD Rd, Rm, Rn   --> Rd = Rm + Rn
             uint8_t rd = (instr >> 8) & 0xF;
             uint8_t rm = (instr >> 4) & 0xF;
             uint8_t rn = instr & 0xF;
@@ -168,8 +113,7 @@ void execute_instruction(Cpu* cpu) {
             break;
         }
 
-
-       case 0x6: { // ADDI
+        case 0x6: { // ADDI Rd, Rm, #Im   --> Rd = Rm + Im
             uint8_t rd = (instr >> 8) & 0xF;
             uint8_t rm = (instr >> 4) & 0xF;
             uint8_t im = instr & 0xF;
@@ -181,7 +125,7 @@ void execute_instruction(Cpu* cpu) {
             break;
         }
 
-        case 0x7: { // SUB
+        case 0x7: { // SUB Rd, Rm, Rn   --> Rd = Rm - Rn
             uint8_t rd = (instr >> 8) & 0xF;
             uint8_t rm = (instr >> 4) & 0xF;
             uint8_t rn = instr & 0xF;
@@ -193,7 +137,7 @@ void execute_instruction(Cpu* cpu) {
             break;
         }
 
-        case 0x8: { // SUBI Rd, Rm, #Im
+        case 0x8: { // SUBI Rd, Rm, #Im   --> Rd = Rm - Im
             uint8_t rd = (instr >> 8) & 0xF;
             uint8_t rm = (instr >> 4) & 0xF;
             uint8_t im = instr & 0xF;
@@ -204,9 +148,16 @@ void execute_instruction(Cpu* cpu) {
             update_flags(cpu, result, cpu->regs[rm], im, '-');
             break;
         }
-
         case 0x9: { // AND
             executa_and(cpu, instr);
+            break;
+        }
+        case 0xA: { // OR
+            executa_or(cpu, instr);
+            break;
+        }
+        case 0xB: { // SHR
+            executa_shr(cpu, instr);
             break;
         }
         case 0xC: { // SHL
@@ -214,17 +165,17 @@ void execute_instruction(Cpu* cpu) {
             break;
         }
 
-        case 0xD: { // CMP
+        case 0xD: { // CMP Rm, Rn
             uint8_t rm = (instr >> 4) & 0xF;
             uint8_t rn = instr & 0xF;
             uint16_t a = cpu->regs[rm];
             uint16_t b = cpu->regs[rn];
             cpu->Z = (a == b);
-            cpu->C = (b > a);
+            cpu->C = (a < b); // Carry é setada se a < b
             break;
         }
 
-        case 0xE: { // PUSH
+        case 0xE: { // PUSH Rn
             uint8_t rn = instr & 0xF;
             stack_push(cpu, cpu->regs[rn]);
             break;
@@ -232,22 +183,19 @@ void execute_instruction(Cpu* cpu) {
 
         case 0xF: {
             if (instr == 0xFFFF) {
-                printf("HALT executado.\n");
-                // Nada além disso
-            }
-            else {
+    
+
+            } else {
                 uint8_t rd = (instr >> 8) & 0xF;
                 cpu->regs[rd] = stack_pop(cpu);
             }
             break;
         }
-
         default:
             printf("Instrucao nao implementada: 0x%04X\n", instr);
             break;
     }
 }
-
 
 void executa_jmp(Cpu* cpu, int16_t offset) {
     cpu->regs[15] += offset;
@@ -290,26 +238,62 @@ void executa_jge(Cpu* cpu, int16_t offset) {
     }
 }
 
-void executa_and(Cpu* cpu, uint16_t instr) {
-    uint8_t rd = (instr >> 12) & 0xF;
-    uint8_t rm = (instr >> 8) & 0xF;
+void executa_and(Cpu *cpu, uint16_t instr) {
+    uint8_t rd = (instr >> 8) & 0xF;
+    uint8_t rm = (instr >> 4) & 0xF;
     uint8_t rn = instr & 0xF;
-
     uint16_t result = cpu->regs[rm] & cpu->regs[rn];
     cpu->regs[rd] = result;
-
     update_flags(cpu, result, cpu->regs[rm], cpu->regs[rn], '&');
-    printf("AND R%d = R%d & R%d = 0x%04X\n", rd, rm, rn, result);
 }
 
-void executa_shl(Cpu* cpu, uint16_t instr) {
-    uint8_t rd = (instr >> 12) & 0xF;
-    uint8_t rm = (instr >> 8) & 0xF;
-    uint8_t imm = instr & 0xF;
-
-    uint16_t result = cpu->regs[rm] << imm;
+void executa_shl(Cpu *cpu, uint16_t instr) {
+    uint8_t rd = (instr >> 8) & 0xF;
+    uint8_t rm = (instr >> 4) & 0xF;
+    uint8_t im = instr & 0xF;
+    uint16_t result = cpu->regs[rm] << im;
     cpu->regs[rd] = result;
-
-    update_flags(cpu, result, cpu->regs[rm], imm, '<');
-    printf("SHL R%d = R%d << %d = 0x%04X\n", rd, rm, imm, result);
+    update_flags(cpu, result, cpu->regs[rm], im, '<');
+}
+void executa_or(Cpu *cpu, uint16_t instr) {
+    uint8_t rd = (instr >> 8) & 0xF;
+    uint8_t rm = (instr >> 4) & 0xF;
+    uint8_t rn = instr & 0xF;
+    uint16_t result = cpu->regs[rm] | cpu->regs[rn];
+    cpu->regs[rd] = result;
+    update_flags(cpu, result, cpu->regs[rm], cpu->regs[rn], '|');
+}
+void executa_shr(Cpu *cpu, uint16_t instr) {
+    uint8_t rd = (instr >> 8) & 0xF;
+    uint8_t rm = (instr >> 4) & 0xF;
+    uint8_t im = instr & 0xF;
+    uint16_t result = cpu->regs[rm] >> im;
+    cpu->regs[rd] = result;
+    update_flags(cpu, result, cpu->regs[rm], im, '>');
+}
+void executa_jnz(Cpu* cpu, int16_t offset) {
+    if (!cpu->Z) {
+        cpu->regs[15] += offset;
+        printf("JNZ → PC = 0x%04X\n", cpu->regs[15]);
+    } else {
+        printf("JNZ ignorado: Z = 1\n");
+    }
+}
+void executa_jgt(Cpu* cpu, int16_t offset) {
+ 
+    if (!cpu->Z && !cpu->C) {
+        cpu->regs[15] += offset;
+        printf("JGT → PC = 0x%04X\n", cpu->regs[15]);
+    } else {
+        printf("JGT ignorado: Z = %d, C = %d\n", cpu->Z, cpu->C);
+    }
+}
+void executa_jle(Cpu* cpu, int16_t offset) {
+   
+    if (cpu->Z || cpu->C) {
+        cpu->regs[15] += offset;
+        printf("JLE → PC = 0x%04X\n", cpu->regs[15]);
+    } else {
+        printf("JLE ignorado: Z = %d, C = %d\n", cpu->Z, cpu->C);
+    }
 }

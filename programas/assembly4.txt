@@ -1,0 +1,39 @@
+main:   MOV R10, #0xF0      0000: 0x4AF0
+        SHL R11, R10, #8    0001: 0xCBA8
+        ADDI R12, R11, #1   0002: 0x6CB1
+        LDR R1, [R12]       0003: 0x21C0
+        PUSH R1             0004: 0xE001
+        MOV R13, #0         0005: 0x4D00
+
+read:   CMP R1, R13         0006: 0xD01D
+        JEQ call            0007: 0x1005
+        LDR R5, [R12]       0008: 0x25C0
+        STR R5, [R10]       0009: 0x30A5
+        ADDI R10, R10, #1   000A: 0x6AA1
+        SUBI R1, R1, #1     000B: 0x8111
+        JMP read            000C: 0x0FF9
+
+call:   POP R1              000D: 0xF100
+        SUB R0, R10, R1     000E: 0x70A1
+        ADDI R10, PC, #2    000F: 0x6AF2
+        PUSH R10            0010: 0xE00A
+        JMP arrsum          0011: 0x0003
+
+print:  ADDI R12, R11, #3   0012: 0x6CB3
+        STR R0, [R12]       0013: 0x30C0
+        HALT                0014: 0xFFFF
+
+arrsum: PUSH R4             0015: 0xE004
+        PUSH R5             0016: 0xE005
+        ADDI R4, R1, #0     0017: 0x6410
+        JEQ exit            0018: 0x1007
+        MOV R4, #0x00       0019: 0x4400
+loop:   LDR R5, [R0]        001A: 0x2500
+        ADD R4, R4, R5      001B: 0x5445
+        ADDI R0, R0, #1     001C: 0x6001
+        SUBI R1, R1, #1     001D: 0x8111
+        JNE loop            001E: 0x17FB
+        ADDI R0, R4, #0     001F: 0x6040
+exit:   POP R5              0020: 0xF500
+        POP R4              0021: 0xF400
+        POP PC              0022: 0xFF00

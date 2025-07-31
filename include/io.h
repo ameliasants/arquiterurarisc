@@ -1,6 +1,5 @@
 #ifndef IO_H
 #define IO_H
-
 #include <stdint.h>
 
 #define CHAR_IN  0xF000
