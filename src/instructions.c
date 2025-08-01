@@ -7,24 +7,22 @@
 extern uint16_t memory[];
 
 void update_flags(Cpu* cpu, uint16_t result, uint16_t a, uint16_t b, char op) {
-    // Z flag: resultado é zero
     cpu->Z = (result == 0);
 
-    // C flag: depende da operação
     switch(op) {
-        case '+': // soma
+        case '+': 
             cpu->C = (result < a || result < b);
             break;
-        case '-': // subtração
+        case '-': 
             cpu->C = (a < b);
             break;
-        case '&': // AND não gera carry
-        case '|': // OR também não
-        case '^': // XOR idem
+        case '&': 
+        case '|': 
+        case '^': 
             cpu->C = 0;
             break;
         case '<': // SHL
-            cpu->C = (a & (1 << (16 - b))) != 0; // pega bit empurrado pra fora
+            cpu->C = (a & (1 << (16 - b))) != 0; 
             break;
         case '>': // SHR
             cpu->C = (a & (1 << (b - 1))) != 0;
@@ -37,16 +35,15 @@ void update_flags(Cpu* cpu, uint16_t result, uint16_t a, uint16_t b, char op) {
 void execute_instruction(Cpu* cpu) {
     uint16_t instr = read_memory(cpu->regs[15]);
     cpu->IR = instr;
-    cpu->regs[15]++; // Incrementa PC
+    cpu->regs[15]++;
 
-    uint8_t opcode = (instr >> 12) & 0xF; // para identificar a instrução
-    printf("Executando: 0x%04X\n", instr);
+    uint8_t opcode = (instr >> 12) & 0xF; 
 
     switch (opcode) {
         case 0x0: {
             if (instr == 0x0000) {
                 print_state(cpu); 
-                print_memory_accesses();
+               // print_memory_accesses();
             }
             break;
         }
@@ -54,7 +51,7 @@ void execute_instruction(Cpu* cpu) {
         case 0x1: {
             uint8_t tipo = (instr >> 9) & 0x7;
             int16_t offset = instr & 0x1FF;
-            if (offset & 0x100) offset |= 0xFE00; // sinal negativo
+            if (offset & 0x100) offset |= 0xFE00; 
 
             switch (tipo) {
                 case 0: executa_jmp(cpu, offset); break;
@@ -74,18 +71,14 @@ void execute_instruction(Cpu* cpu) {
             uint8_t rd = (instr >> 8) & 0xF;
             uint8_t rm = (instr >> 4) & 0xF;
             uint16_t addr = cpu->regs[rm];
-            cpu->regs[rd] = read_memory(addr); // read_memory deve chamar handle_io se addr==0x02
+            cpu->regs[rd] = read_memory(addr); 
             break;
         }
       case 0x3: { // STR Rn, [Rm]
-            // Implementa: memory[Rm] = Rn
-            // Encoding: opcode(4b) | Rm(4b) | Rn(4b)
-            uint8_t rm = (instr >> 4) & 0xF; // Rm: base/endereço (destino)
-            uint8_t rn = instr & 0xF;        // Rn: valor a armazenar (fonte)
+            uint8_t rm = (instr >> 4) & 0xF; // Rm: base/endereçamento 
+            uint8_t rn = instr & 0xF;        // Rn: valor a armazenar 
             uint16_t addr = cpu->regs[rm];
             uint16_t value = cpu->regs[rn];
-            // Debug opcional:
-            // printf("STR R%d (0x%04X) -> [R%d (0x%04X)]\n", rn, value, rm, addr);
             write_memory(addr, value);
             break;
         }
@@ -171,7 +164,7 @@ void execute_instruction(Cpu* cpu) {
             uint16_t a = cpu->regs[rm];
             uint16_t b = cpu->regs[rn];
             cpu->Z = (a == b);
-            cpu->C = (a < b); // Carry é setada se a < b
+            cpu->C = (a < b); 
             break;
         }
 

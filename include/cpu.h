@@ -1,8 +1,11 @@
+#include <stdint.h>
 #ifndef CPU_H
 #define CPU_H
 #define STACK_MIN 0x1000
+#define STACK_SIZE 0x1000
+extern uint8_t stack_accessed[STACK_SIZE];
+#define STACK_START 0x1000
 
-#include <stdint.h>
 
 #define NUM_REGS 16
 #define STACK_MIN 0x1000
@@ -17,6 +20,8 @@ typedef struct {
 void init_cpu(Cpu* cpu);
 void print_state(Cpu* cpu);
 void run(Cpu* cpu);
-void print_memory_accesses(void);
+void print_accessed_stack(void);
+void print_accessed_memory(void);
+void init_stack_accessed(void);
 
 #endif

@@ -2,10 +2,12 @@
 #include "memory.h"
 #include <stdio.h>
 #include <string.h>
+#include "utils.h"
 
 int main(int argc, char *argv[]) {
     Cpu cpu;
     init_cpu(&cpu);
+    init_stack_accessed();
 
     char filename[256] = "programas\\name.txt"; 
     if (argc > 1) {
@@ -26,7 +28,10 @@ int main(int argc, char *argv[]) {
     load_program(filename);
 
     run(&cpu);
+    write_memory(0x8000, 0x1234);
+    read_memory(0x8000);
     print_state(&cpu);
-    print_memory_accesses();
+    print_accessed_stack();   
+    print_accessed_memory(); 
     return 0;
 }
